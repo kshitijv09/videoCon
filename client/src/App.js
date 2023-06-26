@@ -1,9 +1,10 @@
 import { createBrowserRouter, RouterProvider } from "react-router-dom";
-import LobbyScreen from "./Screen/LobbyScreen";
+import Lobby from "./Screen/Lobby";
+import Room from "./Screen/Room";
 function App() {
   const router = createBrowserRouter([
-    { path: "/lobby", element: <LobbyScreen /> },
-    {},
+    { index: true, element: <Lobby /> },
+    { path: "/rooms/:room", element: <Room /> },
     {},
   ]);
   return <RouterProvider router={router} />;
