@@ -17,11 +17,14 @@ export default function Lobby() {
     [socket, email, room]
   );
 
-  const handleJoinRoom = useCallback((data) => {
-    const { email, room } = data;
-    // console.log(email, room);
-    navigate(`/rooms/${room}`);
-  });
+  const handleJoinRoom = useCallback(
+    (data) => {
+      const { email, room } = data;
+      // console.log(email, room);
+      navigate(`/rooms/${room}`);
+    },
+    [navigate]
+  );
 
   useEffect(() => {
     socket.on("room_join", handleJoinRoom);

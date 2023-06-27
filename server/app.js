@@ -14,11 +14,12 @@ io.on("connection", (socket) => {
     const { email, room } = data;
     emailToSocketid.set(email, socket.id);
     socketidToEmail.set(socket.id, email);
-    console.log(email, room);
+    console.log(email, room, socket.id);
 
-    io.to(socket.id).emit("room_join", data); // To all sockets including sender
+    io.to(room).emit("user_joined", { email: email, id: socket.id }); // To all sockets excluding sender
     socket.join(room);
-    io.to(room).emit("user_joined", { email: email, id: socket.id });
+
+    io.to(socket.id).emit("room_join", data);
 
     socket.on("user:call", ({ to, offer }) => {
       console.log("Offer is ", offer);
@@ -27,6 +28,20 @@ io.on("connection", (socket) => {
 
     socket.on("call:accepted", ({ to, ans }) => {
       io.to(to).emit("call:accepted", { from: socket.id, ans });
+    });
+
+    socket.on("call:accepted", ({ to, ans }) => {
+      io.to(to).emit("call:accepted", { from: socket.id, ans });
+    });
+
+    socket.on("peer:nego:needed", ({ to, offer }) => {
+      console.log("peer:nego:needed", offer);
+      io.to(to).emit("peer:nego:needed", { from: socket.id, offer });
+    });
+
+    socket.on("peer:nego:done", ({ to, ans }) => {
+      console.log("peer:nego:done", ans);
+      io.to(to).emit("peer:nego:final", { from: socket.id, ans });
     });
   });
 });
