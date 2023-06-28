@@ -16,16 +16,24 @@ class PeerService {
 
   async getAnswer(offer) {
     if (this.peer) {
-      await this.peer.setRemoteDescription(offer);
-      const ans = await this.peer.createAnswer();
-      await this.peer.setLocalDescription(new RTCSessionDescription(ans));
-      return ans;
+      try {
+        await this.peer.setRemoteDescription(offer);
+        const ans = await this.peer.createAnswer();
+        await this.peer.setLocalDescription(ans);
+        return ans;
+      } catch (error) {
+        console.error("Failed to create and set answer:", error);
+      }
     }
   }
 
   async setLocalDescription(ans) {
     if (this.peer) {
-      await this.peer.setRemoteDescription(new RTCSessionDescription(ans));
+      try {
+        await this.peer.setRemoteDescription(ans);
+      } catch (error) {
+        console.error("Failed to set remote description:", error);
+      }
     }
   }
 
@@ -33,7 +41,7 @@ class PeerService {
     if (this.peer) {
       const offer = await this.peer.createOffer();
       await this.peer.setLocalDescription(new RTCSessionDescription(offer));
-      //console.log("Offer 2 is", offer);
+      console.log("Offer 2 is");
       return offer;
     }
   }

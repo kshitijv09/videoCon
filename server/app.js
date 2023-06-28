@@ -31,8 +31,15 @@ io.on("connection", (socket) => {
     });
 
     socket.on("call:accepted", ({ to, ans }) => {
+      //console.log("Ans is", ans);
       io.to(to).emit("call:accepted", { from: socket.id, ans });
     });
+
+    /*  socket.on("iceCandidate", (data) => {
+      socket.to(data.to).emit("remotePeerIceCandidate", {
+        candidate: data.candidate,
+      });
+    }); */
 
     socket.on("peer:nego:needed", ({ to, offer }) => {
       console.log("peer:nego:needed", offer);

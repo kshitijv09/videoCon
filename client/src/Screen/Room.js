@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { useSocket } from "../context/SocketProvider";
 import ReactPlayer from "react-player";
 import peer from "../service/peer";
@@ -7,7 +7,9 @@ export default function Room() {
   const socket = useSocket();
   const [remoteSocketId, setRemoteSocketId] = useState(null);
   const [myStream, setMyStream] = useState();
-  const [remoteStream, setRemoteStream] = useState(null);
+  const [remoteStream, setRemoteStream] = useState();
+  const remoteVideoRef = useRef(null);
+
   const joinUser = useCallback((data) => {
     const { email, id } = data;
     setRemoteSocketId(id);
@@ -23,6 +25,7 @@ export default function Room() {
     //console.log("Offer is", offer);
     socket.emit("user:call", { to: remoteSocketId, offer: offer });
     setMyStream(stream);
+    //stream.getTracks().forEach(track => peer.addTrack(track, stream));
   }, [remoteSocketId, socket]);
 
   const handleIncommingCall = useCallback(
@@ -34,22 +37,70 @@ export default function Room() {
       });
       setMyStream(stream);
       console.log(`Incoming Call`, from, offer);
+
       const ans = await peer.getAnswer(offer);
       socket.emit("call:accepted", { to: from, ans });
     },
     [socket]
   );
 
-  const sendStreams = useCallback(() => {
-    for (const track of myStream.getTracks()) {
-      peer.peer.addTrack(track, myStream);
+  /* socket.on('remotePeerIceCandidate', async (data) => {
+    try {
+      const candidate = new RTCIceCandidate(data.candidate);
+      await peer.addIceCandidate(candidate);
+    } catch (error) {
+      // Handle error, this will be rejected very often
     }
+  }) */
+  /* const sendIceCandidate = (event) => {
+    socket.emit("iceCandidate", {
+      to: remoteSocketId,
+      candidate: event.candidate,
+    });
+  };
+
+  useEffect(() => {
+    peer.onicecandidate = (event) => {
+      sendIceCandidate(event);
+    };
+  }, [socket]);
+
+  const handleRemotePeerIceCandidate = useCallback(async (data) => {
+    try {
+      const candidate = new RTCIceCandidate(data.candidate);
+      await peer.addIceCandidate(candidate);
+    } catch (error) {
+      // Handle error, this will be rejected very often
+      console.log("Error logged is", error);
+    }
+  }, []); */
+
+  const sendStreams = useCallback(() => {
+    /* for (const track of myStream.getTracks()) {
+      peer.peer.addTrack(track, myStream);
+    } */
+    const localTracks = myStream.getTracks();
+    const senders = peer.peer.getSenders();
+
+    localTracks.forEach((track) => {
+      const sender = senders.find((s) => s.track.kind === track.kind);
+
+      if (!sender) {
+        peer.peer.addTrack(track, myStream);
+      }
+    });
   }, [myStream]);
 
   const handleCallAccepted = useCallback(
     ({ from, ans }) => {
-      peer.setLocalDescription(ans);
-      console.log("Call Accepted!");
+      peer
+        .setLocalDescription(ans)
+        .then(() => {
+          console.log("Call Accepted!");
+        })
+        .catch((error) => {
+          console.error("Failed to set local description:", error);
+        });
       sendStreams();
     },
     [sendStreams]
@@ -78,14 +129,27 @@ export default function Room() {
   );
 
   const handleNegoNeedFinal = useCallback(async ({ ans }) => {
+    /*  await peer.setLocalDescription(ans); */
     await peer.setLocalDescription(ans);
+    const remoteStream = new MediaStream(
+      peer.peer.getReceivers().map((receiver) => receiver.track)
+    );
+    setRemoteStream(remoteStream);
   }, []);
 
-  useEffect(() => {
+  /* useEffect(() => {
     peer.peer.addEventListener("track", async (ev) => {
       const remoteStream = ev.streams;
       console.log("GOT TRACKS!!");
       setRemoteStream(remoteStream[0]);
+    });
+  }, []); */
+
+  useEffect(() => {
+    peer.peer.addEventListener("track", (event) => {
+      const remoteStream = new MediaStream([event.track]);
+      console.log("Track found");
+      setRemoteStream(remoteStream);
     });
   }, []);
 
@@ -93,12 +157,14 @@ export default function Room() {
     socket.on("user_joined", joinUser);
     socket.on("incomming:call", handleIncommingCall);
     socket.on("call:accepted", handleCallAccepted);
+    /* socket.on("remotePeerIceCandidate", handleRemotePeerIceCandidate); */
     socket.on("peer:nego:needed", handleNegoNeedIncomming);
     socket.on("peer:nego:final", handleNegoNeedFinal);
     return () => {
       socket.off("user_joined");
       socket.off("incomming:call", handleIncommingCall);
       socket.off("call:accepted", handleCallAccepted);
+      /* socket.off("remotePeerIceCandidate", handleRemotePeerIceCandidate); */
       socket.off("peer:nego:needed", handleNegoNeedIncomming);
       socket.off("peer:nego:final", handleNegoNeedFinal);
     };
@@ -107,6 +173,7 @@ export default function Room() {
     joinUser,
     handleIncommingCall,
     handleCallAccepted,
+    /*  handleRemotePeerIceCandidate, */
     handleNegoNeedIncomming,
     handleNegoNeedFinal,
   ]);
@@ -130,7 +197,7 @@ export default function Room() {
           />
         </>
       )}
-      {remoteStream && (
+      {/* {remoteStream && (
         <>
           <h1>Remote Stream</h1>
           <ReactPlayer
@@ -140,6 +207,12 @@ export default function Room() {
             width="200px"
             url={remoteStream}
           />
+        </>
+      )} */}
+      {remoteStream && (
+        <>
+          <h1>Remote Stream</h1>
+          <video ref={remoteVideoRef} autoPlay playsInline />
         </>
       )}
     </div>
