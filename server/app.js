@@ -34,21 +34,5 @@ io.on("connection", (socket) => {
       //console.log("Ans is", ans);
       io.to(to).emit("call:accepted", { from: socket.id, ans });
     });
-
-    /*  socket.on("iceCandidate", (data) => {
-      socket.to(data.to).emit("remotePeerIceCandidate", {
-        candidate: data.candidate,
-      });
-    }); */
-
-    socket.on("peer:nego:needed", ({ to, offer }) => {
-      console.log("peer:nego:needed", offer);
-      io.to(to).emit("peer:nego:needed", { from: socket.id, offer });
-    });
-
-    socket.on("peer:nego:done", ({ to, ans }) => {
-      console.log("peer:nego:done", ans);
-      io.to(to).emit("peer:nego:final", { from: socket.id, ans });
-    });
   });
 });

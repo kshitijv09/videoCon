@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useSocket } from "../context/SocketProvider";
 
 export default function Lobby() {
-  const socket = useSocket();
+  const { socket } = useSocket();
   const [email, setEmail] = useState("");
   const [room, setRoom] = useState("");
 
