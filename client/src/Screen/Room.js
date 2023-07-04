@@ -22,9 +22,9 @@ export default function Room() {
       audio: true,
       video: true,
     });
-    setMyStream(stream);
+    setRemoteStream(stream);
 
-    const peer = new Peer({ initiator: true, trickle: false, myStream });
+    const peer = new Peer({ initiator: true, trickle: false, stream });
 
     peer.on("signal", (data) => {
       socket.emit("callUser", {
@@ -77,12 +77,10 @@ export default function Room() {
   useEffect(() => {
     socket.on("user_joined", joinUser);
     socket.on("incomingCall", answerCall);
-    /*  socket.on("callAccepted", callAcceptedHandler); */
 
     return () => {
       socket.off("user_joined");
       socket.off("incomingCall");
-      /* socket.on("callAccepted", callAcceptedHandler); */
     };
   }, [socket, joinUser, answerCall]);
 
@@ -90,7 +88,6 @@ export default function Room() {
     <div>
       <h1> This is the Room</h1>
       <h2>{remoteSocketId ? "Connected" : "Not"}</h2>
-      {/* {myStream && <button onClick={sendStreams}>Send Stream</button>}*/}
       {remoteSocketId && <button onClick={handleCallUser}>CALL</button>}
       {myStream && (
         <>
