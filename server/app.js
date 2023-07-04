@@ -21,18 +21,23 @@ io.on("connection", (socket) => {
 
     io.to(socket.id).emit("room_join", data);
 
-    socket.on("user:call", ({ to, offer }) => {
-      console.log("Offer is ", offer);
-      io.to(to).emit("incomming:call", { from: socket.id, offer: offer });
+    socket.on("callUser", ({ userToCall, signalData /* , from, name */ }) => {
+      io.to(userToCall).emit("incomingCall", {
+        signal: signalData,
+        from: socket.id,
+      });
     });
 
-    socket.on("call:accepted", ({ to, ans }) => {
-      io.to(to).emit("call:accepted", { from: socket.id, ans });
+    socket.on("answerCall", (data) => {
+      io.to(data.to).emit("callAccepted", data.signal);
     });
 
-    socket.on("call:accepted", ({ to, ans }) => {
-      //console.log("Ans is", ans);
-      io.to(to).emit("call:accepted", { from: socket.id, ans });
+    socket.on("disconnect", () => {
+      const email = socketidToEmail.get(socket.id);
+      if (email) {
+        emailToSocketid.delete(email);
+        socketidToEmail.delete(socket.id);
+      }
     });
   });
 });

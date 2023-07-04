@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState, useRef } from "react";
 import { useSocket } from "../context/SocketProvider";
 import ReactPlayer from "react-player";
+import Peer from "simple-peer";
 
 export default function Room() {
   const { socket } = useSocket();
@@ -8,6 +9,7 @@ export default function Room() {
   const [myStream, setMyStream] = useState();
   const [remoteStream, setRemoteStream] = useState();
   const remoteVideoRef = useRef(null);
+  const [callAccepted, setCallAccepted] = useState(false);
 
   const joinUser = useCallback((data) => {
     const { email, id } = data;
@@ -21,50 +23,68 @@ export default function Room() {
       video: true,
     });
     setMyStream(stream);
+
+    const peer = new Peer({ initiator: true, trickle: false, myStream });
+
+    peer.on("signal", (data) => {
+      socket.emit("callUser", {
+        userToCall: remoteSocketId,
+        signalData: data,
+        /*  from: me, */
+      });
+    });
+
+    peer.on("stream", (currentStream) => {
+      /* userVideo.current.srcObject = currentStream; */
+      setMyStream(currentStream);
+    });
+
+    socket.on("callAccepted", (signal) => {
+      setCallAccepted(true);
+
+      peer.signal(signal);
+    });
+
+    //connectionRef.current = peer;
   }, [remoteSocketId, socket]);
 
-  /* const handleIncommingCall = useCallback(
-    async ({ from, offer }) => {
-      setRemoteSocketId(from);
+  const answerCall = useCallback(
+    async (call) => {
+      console.log("Call is", call);
+      setCallAccepted(true);
+
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: true,
         video: true,
       });
-      setMyStream(stream);
-      console.log(`Incoming Call`, from, offer);
+      setRemoteStream(stream);
 
-      const ans = await peer.getAnswer(offer);
-      socket.emit("call:accepted", { to: from, ans });
+      const peer = new Peer({ initiator: false, trickle: false, stream });
+
+      peer.on("signal", (data) => {
+        socket.emit("answerCall", { signal: data, to: call.from });
+      });
+
+      peer.on("stream", (currentStream) => {
+        setRemoteStream(currentStream);
+      });
+
+      peer.signal(call.signal);
     },
     [socket]
   );
 
-  const handleCallAccepted = useCallback(
-    ({ from, ans }) => {
-      peer
-        .setLocalDescription(ans)
-        .then(() => {
-          console.log("Call Accepted!");
-        })
-        .catch((error) => {
-          console.error("Failed to set local description:", error);
-        });
-      sendStreams();
-    },
-    [sendStreams]
-  ); */
-
   useEffect(() => {
     socket.on("user_joined", joinUser);
-    /* socket.on("incomming:call", handleIncommingCall);
-    socket.on("call:accepted", handleCallAccepted); */
+    socket.on("incomingCall", answerCall);
+    /*  socket.on("callAccepted", callAcceptedHandler); */
 
     return () => {
       socket.off("user_joined");
-      /* socket.off("incomming:call", handleIncommingCall);
-      socket.off("call:accepted", handleCallAccepted); */
+      socket.off("incomingCall");
+      /* socket.on("callAccepted", callAcceptedHandler); */
     };
-  }, [socket, joinUser /* handleIncommingCall, handleCallAccepted */]);
+  }, [socket, joinUser, answerCall]);
 
   return (
     <div>
@@ -85,7 +105,7 @@ export default function Room() {
           />
         </>
       )}
-      {/* {remoteStream && (
+      {remoteStream && (
         <>
           <h1>Remote Stream</h1>
           <ReactPlayer
@@ -95,12 +115,6 @@ export default function Room() {
             width="200px"
             url={remoteStream}
           />
-        </>
-      )} */}
-      {remoteStream && (
-        <>
-          <h1>Remote Stream</h1>
-          <video ref={remoteVideoRef} autoPlay playsInline />
         </>
       )}
     </div>
