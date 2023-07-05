@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState, useRef } from "react";
 import { useSocket } from "../context/SocketProvider";
-import ReactPlayer from "react-player";
 import Peer from "simple-peer";
 
 export default function Room() {
@@ -8,8 +7,11 @@ export default function Room() {
   const [remoteSocketId, setRemoteSocketId] = useState(null);
   const [myStream, setMyStream] = useState();
   const [remoteStream, setRemoteStream] = useState();
+  const currentVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const [callAccepted, setCallAccepted] = useState(false);
+
+  const [callInitiated, setCallInitiated] = useState(false);
 
   const joinUser = useCallback((data) => {
     const { email, id } = data;
@@ -22,11 +24,12 @@ export default function Room() {
       audio: true,
       video: true,
     });
-    setRemoteStream(stream);
+    setMyStream(stream);
 
     const peer = new Peer({ initiator: true, trickle: false, stream });
 
     peer.on("signal", (data) => {
+      // Fired  when peer wants to send signalling data to remote peer
       socket.emit("callUser", {
         userToCall: remoteSocketId,
         signalData: data,
@@ -35,13 +38,12 @@ export default function Room() {
     });
 
     peer.on("stream", (currentStream) => {
-      /* userVideo.current.srcObject = currentStream; */
-      setMyStream(currentStream);
+      setRemoteStream(currentStream); //peer.on("stream") event listener is responsible for setting the received stream to the remoteStream state variable, allowing the remote video element to display the video of the respective peer.
     });
 
     socket.on("callAccepted", (signal) => {
       setCallAccepted(true);
-
+      setCallInitiated(true);
       peer.signal(signal);
     });
 
@@ -69,7 +71,8 @@ export default function Room() {
         setRemoteStream(currentStream);
       });
 
-      peer.signal(call.signal);
+      peer.signal(call.signal); // all this method whenever the remote peer emits a peer.on('signal') event.
+      //The data will encapsulate a webrtc offer, answer, or ice candidate. These messages help the peers to eventually establish a direct connection to each other.
     },
     [socket]
   );
@@ -84,6 +87,32 @@ export default function Room() {
     };
   }, [socket, joinUser, answerCall]);
 
+  useEffect(() => {
+    if (currentVideoRef.current && myStream) {
+      currentVideoRef.current.srcObject = myStream;
+    }
+  }, [myStream]);
+
+  useEffect(() => {
+    if (remoteVideoRef.current && remoteStream) {
+      remoteVideoRef.current.srcObject = remoteStream;
+    }
+  }, [remoteStream]);
+
+  useEffect(() => {
+    if (callAccepted && !callInitiated) {
+      const updateStream = async () => {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          audio: true,
+          video: true,
+        });
+        setMyStream(stream);
+      };
+
+      updateStream();
+    }
+  }, [callAccepted, callInitiated]);
+
   return (
     <div>
       <h1> This is the Room</h1>
@@ -93,25 +122,13 @@ export default function Room() {
         <>
           <h1>My Stream</h1>
 
-          <ReactPlayer
-            playing
-            muted
-            height="100px"
-            width="200px"
-            url={myStream}
-          />
+          <video ref={currentVideoRef} autoPlay muted playsInline />
         </>
       )}
       {remoteStream && (
         <>
           <h1>Remote Stream</h1>
-          <ReactPlayer
-            playing
-            muted
-            height="100px"
-            width="200px"
-            url={remoteStream}
-          />
+          <video ref={remoteVideoRef} autoPlay muted playsInline />
         </>
       )}
     </div>
