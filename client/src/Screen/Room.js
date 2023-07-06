@@ -10,6 +10,7 @@ export default function Room() {
   const currentVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
   const [callAccepted, setCallAccepted] = useState(false);
+  const [receivedFiles, setReceivedFiles] = useState([]);
 
   const [callInitiated, setCallInitiated] = useState(false);
 
@@ -26,7 +27,11 @@ export default function Room() {
     });
     setMyStream(stream);
 
-    const peer = new Peer({ initiator: true, trickle: false, stream });
+    const peer = new Peer({
+      initiator: true,
+      trickle: false,
+      stream,
+    });
 
     peer.on("signal", (data) => {
       // Fired  when peer wants to send signalling data to remote peer
@@ -38,9 +43,9 @@ export default function Room() {
     });
 
     peer.on("stream", (currentStream) => {
-      setRemoteStream(currentStream); //peer.on("stream") event listener is responsible for setting the received stream to the remoteStream state variable, allowing the remote video element to display the video of the respective peer.
-    });
-
+      setRemoteStream(currentStream); //peer.on("stream") event listener is responsible for setting the received
+    }); //stream to the remoteStream state variable, allowing the remote video
+    // element to display the video of the respective peer.
     socket.on("callAccepted", (signal) => {
       setCallAccepted(true);
       setCallInitiated(true);
@@ -61,7 +66,11 @@ export default function Room() {
       });
       setRemoteStream(stream);
 
-      const peer = new Peer({ initiator: false, trickle: false, stream });
+      const peer = new Peer({
+        initiator: false,
+        trickle: false,
+        stream,
+      });
 
       peer.on("signal", (data) => {
         socket.emit("answerCall", { signal: data, to: call.from });
@@ -71,21 +80,45 @@ export default function Room() {
         setRemoteStream(currentStream);
       });
 
-      peer.signal(call.signal); // all this method whenever the remote peer emits a peer.on('signal') event.
+      peer.signal(call.signal); // call this method whenever the remote peer emits a peer.on('signal') event.
       //The data will encapsulate a webrtc offer, answer, or ice candidate. These messages help the peers to eventually establish a direct connection to each other.
     },
     [socket]
   );
 
+  const fileHandler = useCallback((fileData) => {
+    console.log("Received file:", fileData);
+    setReceivedFiles((prevFiles) => [...prevFiles, fileData]);
+  }, []);
+
   useEffect(() => {
     socket.on("user_joined", joinUser);
     socket.on("incomingCall", answerCall);
+    socket.on("file", fileHandler);
 
     return () => {
       socket.off("user_joined");
       socket.off("incomingCall");
+      socket.off("file", fileHandler);
     };
   }, [socket, joinUser, answerCall]);
+
+  /*  const sendFile = useCallback((file) => {
+    const formData = new FormData();
+    formData.append("file", file);
+
+    fetch("http://localhost:8000/upload", {
+      method: "POST",
+      body: formData,
+    })
+      .then((response) => response.json())
+      .then((fileInfo) => {
+        console.log("File uploaded successfully:", fileInfo);
+      })
+      .catch((error) => {
+        console.error("Error uploading file:", error);
+      });
+  }, []); */
 
   useEffect(() => {
     if (currentVideoRef.current && myStream) {
@@ -95,6 +128,7 @@ export default function Room() {
 
   useEffect(() => {
     if (remoteVideoRef.current && remoteStream) {
+      console.log("Setting remote video ref");
       remoteVideoRef.current.srcObject = remoteStream;
     }
   }, [remoteStream]);
@@ -113,6 +147,10 @@ export default function Room() {
     }
   }, [callAccepted, callInitiated]);
 
+  /* useEffect(() => {
+    handleCallUser();
+  }, [remoteSocketId]); */
+
   return (
     <div>
       <h1> This is the Room</h1>
@@ -123,6 +161,9 @@ export default function Room() {
           <h1>My Stream</h1>
 
           <video ref={currentVideoRef} autoPlay muted playsInline />
+          <input
+            type="file" /* onChange={(e) => sendFile(e.target.files[0])} */
+          />
         </>
       )}
       {remoteStream && (
@@ -130,6 +171,20 @@ export default function Room() {
           <h1>Remote Stream</h1>
           <video ref={remoteVideoRef} autoPlay muted playsInline />
         </>
+      )}
+      {receivedFiles.length > 0 && (
+        <div>
+          <h3>Received Files:</h3>
+          <ul>
+            {receivedFiles.map((file, index) => (
+              <li key={index}>
+                <a href={file.url} download={file.originalname}>
+                  {file.originalname}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );

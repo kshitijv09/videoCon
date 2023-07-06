@@ -1,4 +1,12 @@
+const express = require("express");
 const { Server } = require("socket.io");
+const multer = require("multer");
+const path = require("path");
+const fs = require("fs");
+const cors = require("cors");
+
+const app = express();
+const upload = multer({ dest: "uploads/" });
 
 const emailToSocketid = new Map();
 const socketidToEmail = new Map();
@@ -6,6 +14,8 @@ const socketidToEmail = new Map();
 const io = new Server(8000, {
   cors: true,
 });
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 io.on("connection", (socket) => {
   console.log(`Socket connected with id ${socket.id}`);
@@ -32,6 +42,10 @@ io.on("connection", (socket) => {
       io.to(data.to).emit("callAccepted", data.signal);
     });
 
+    socket.on("file", (fileInfo) => {
+      io.emit("file", fileInfo);
+    });
+
     socket.on("disconnect", () => {
       const email = socketidToEmail.get(socket.id);
       if (email) {
@@ -40,4 +54,23 @@ io.on("connection", (socket) => {
       }
     });
   });
+});
+
+app.post("/upload", cors(), upload.single("file"), (req, res) => {
+  const { filename, originalname, path: filePath } = req.file;
+
+  const fileInfo = {
+    filename: filename,
+    originalname: originalname,
+    url: `http://localhost:8000/uploads/${filename}`,
+  };
+
+  io.emit("file", fileInfo);
+  res.json(fileInfo);
+});
+
+app.get("/uploads/:filename", (req, res) => {
+  const { filename } = req.params;
+  const filePath = path.join(__dirname, "uploads", filename);
+  res.send(filePath);
 });

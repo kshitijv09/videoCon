@@ -38,6 +38,7 @@ export const useSocket = () => {
 /* const socket = io("https://warm-wildwood-81069.herokuapp.com"); */
 
 export const SocketProvider = ({ children }) => {
+  //const socket = io("http://localhost:8000");
   const socket = io("https://vidcall-server-1e7c.onrender.com");
 
   const [callAccepted, setCallAccepted] = useState(false);
